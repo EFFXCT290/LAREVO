@@ -1,3 +1,5 @@
+# Still In Development!
+---
 # LA-REVO Tracker
 
 A modern, full-featured private torrent tracker with a Next.js frontend and Fastify/Prisma backend.
