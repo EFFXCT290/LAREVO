@@ -66,7 +66,7 @@ export async function rssFeedHandler(request: FastifyRequest, reply: FastifyRepl
   type Torrent = { id: string; name: string; description?: string | null; infoHash: string; createdAt: Date };
   const items = (torrents as Torrent[]).map((torrent: Torrent) => ({
     title: torrent.name,
-    link: `${process.env.FRONTEND_URL || 'https://yourdomain.com'}/torrent/${torrent.id}`,
+    link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/torrent/${torrent.id}`,
     description: torrent.description || '',
     pubDate: torrent.createdAt.toUTCString(),
     infoHash: torrent.infoHash
@@ -77,7 +77,7 @@ export async function rssFeedHandler(request: FastifyRequest, reply: FastifyRepl
       '@_version': '2.0',
       channel: {
         title: 'Latest Torrents',
-        link: process.env.FRONTEND_URL || 'https://yourdomain.com',
+        link: process.env.FRONTEND_URL || 'http://localhost:3000',
         description: 'Latest torrents from the tracker',
         pubDate: new Date().toUTCString(),
         item: items
