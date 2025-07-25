@@ -1,5 +1,39 @@
 {
-  "dependencies": {
-    "@fastify/static": "^8.2.0"
-  }
+  "name": "larevo-tracker",
+  "version": "1.0.0",
+  "description": "A modern, full-featured private torrent tracker with Next.js frontend and Fastify/Prisma backend",
+  "private": true,
+  "workspaces": [
+    "api",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:client\"",
+    "dev:api": "cd api && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "npm run build:api && npm run build:client",
+    "build:api": "cd api && npm run build",
+    "build:client": "cd client && npm run build",
+    "start": "concurrently \"npm run start:api\" \"npm run start:client\"",
+    "start:api": "cd api && npm run start",
+    "start:client": "cd client && npm run start",
+    "install:all": "npm install && cd api && npm install && cd ../client && npm install",
+    "prisma:generate": "cd api && npm run prisma:generate",
+    "prisma:migrate": "cd api && npm run prisma:migrate",
+    "lint": "npm run lint:client",
+    "lint:client": "cd client && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "keywords": [
+    "torrent",
+    "tracker",
+    "nextjs",
+    "fastify",
+    "prisma",
+    "typescript"
+  ],
+  "author": "EFFXCT290",
+  "license": "MIT"
 }
