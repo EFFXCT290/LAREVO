@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import argon2 from 'argon2';
-import { PrismaClient, UserRole } from '../../generated/prisma/index.js';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { getConfig, isFirstUser } from '../services/configService.js';
 import jwt from 'jsonwebtoken';
 import { sendEmail, getFrontendBaseUrl } from '../utils/sendEmail.js';

@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { PrismaClient, UploadedFile, Config } from '../../generated/prisma/index.js';
+import { PrismaClient, UploadedFile, Config } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   S3Client,

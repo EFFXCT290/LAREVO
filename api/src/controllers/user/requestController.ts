@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '../../../generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 import { createNotification } from '../../services/notificationService.js';
 import { getRequestFilledEmail } from '../../utils/emailTemplates/requestFilledEmail.js';
 import { getCommentThreadHandler, convertBigInts } from '../commentController.js';

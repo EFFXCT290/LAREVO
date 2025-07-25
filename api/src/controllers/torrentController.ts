@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import parseTorrent from 'parse-torrent';
-import { PrismaClient } from '../../generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 import { requireTorrentApproval } from '../services/configService.js';
 import { saveFile, getFile, deleteFile } from '../services/fileStorageService.js';
 import { getConfig } from '../services/configService.js';
