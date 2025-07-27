@@ -1,12 +1,52 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/app/lib/api";
 
 export default function UnverifiedPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!res.ok) {
+          localStorage.removeItem("token");
+          router.replace("/login");
+          return;
+        }
+
+        const data = await res.json();
+        
+        // If user is already verified, redirect to dashboard
+        if (data.emailVerified) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        setCheckingAuth(false);
+      } catch (err) {
+        localStorage.removeItem("token");
+        router.replace("/login");
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const handleResend = async () => {
     setLoading(true);
@@ -15,19 +55,43 @@ export default function UnverifiedPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!token) throw new Error("Not logged in");
+      
+      console.log("[handleResend] Sending request with token:", token.substring(0, 20) + "...");
+      
       const res = await fetch(`${API_BASE_URL}/auth/request-email-verification`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}), // Add empty JSON body
       });
+      
+      console.log("[handleResend] Response status:", res.status);
+      
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send verification email");
-      setMessage("Verification email sent! Please check your inbox.");
+      console.log("[handleResend] Response data:", data);
+      
+      if (!res.ok) {
+        console.error("[handleResend] Error response:", data);
+        throw new Error(data.error || "Failed to send verification email");
+      }
+      
+      setMessage("Verification email sent! Please check your inbox."); //set text secondary
     } catch (err: any) {
-      setError(err.message || "Failed to send verification email");
+      console.error("[handleResend] Caught error:", err);
+      setError(err.message || "Failed to send verification email"); //set text secondary
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-text-secondary">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

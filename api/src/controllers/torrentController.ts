@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import parseTorrent from 'parse-torrent';
+import bencode from 'bencode';
 import { PrismaClient } from '@prisma/client';
 import { requireTorrentApproval } from '../services/configService.js';
 import { saveFile, getFile, deleteFile } from '../services/fileStorageService.js';
@@ -7,6 +8,7 @@ import { getConfig } from '../services/configService.js';
 import { createNotification } from '../services/notificationService.js';
 import { getTorrentApprovedEmail, getTorrentRejectedEmail } from '../utils/emailTemplates/torrentApprovalEmail.js';
 import path from 'path';
+import { getSeederLeecherCounts, getCompletedCount } from '../announce_features/peerList.js';
 
 const prisma = new PrismaClient();
 
@@ -184,21 +186,71 @@ export async function uploadTorrentHandler(request: FastifyRequest, reply: Fasti
 
 export async function downloadTorrentHandler(request: FastifyRequest, reply: FastifyReply) {
   const user = (request as any).user;
-  if (!user) return reply.status(401).send({ error: 'Unauthorized' });
+  const { token } = request.query as any;
+  
+  // Support both JWT auth and RSS token auth
+  let authenticatedUser = user;
+  if (!authenticatedUser && token) {
+    authenticatedUser = await prisma.user.findUnique({ where: { rssToken: token, rssEnabled: true } });
+    if (!authenticatedUser || authenticatedUser.status !== 'ACTIVE') {
+      return reply.status(401).send({ error: 'Invalid RSS token' });
+    }
+  }
+  
+  if (!authenticatedUser) return reply.status(401).send({ error: 'Unauthorized' });
+  
+  // Fetch full user data including passkey from database
+  const fullUser = await prisma.user.findUnique({ where: { id: authenticatedUser.id } });
+  if (!fullUser) return reply.status(401).send({ error: 'User not found' });
+  
   const { id } = request.params as any;
   const torrent = await prisma.torrent.findUnique({ where: { id } });
-  if (!torrent) return reply.status(404).send({ error: 'Torrent not found' });
+  if (!torrent || !torrent.isApproved) return reply.status(404).send({ error: 'Torrent not found' });
+  
   // Optionally: check if user is allowed to download (e.g., approved, ratio, etc.)
   const config = normalizeS3Config(await getConfig());
   const file = await prisma.uploadedFile.findUnique({ where: { id: torrent.filePath } });
   if (!file) return reply.status(404).send({ error: 'Torrent file not found' });
+  
   try {
     const fileBuffer = await getFile({ file, config });
+    
+    // Modify the torrent file to replace announce URLs with user's passkey
+    const modifiedBuffer = await modifyTorrentAnnounceUrls(fileBuffer, fullUser.passkey);
+    
     reply.header('Content-Type', file.mimeType || 'application/x-bittorrent');
     reply.header('Content-Disposition', `attachment; filename="${torrent.name}.torrent"`);
-    return reply.send(fileBuffer);
+    return reply.send(modifiedBuffer);
   } catch (err) {
+    console.error('[downloadTorrentHandler] Error:', err);
     return reply.status(500).send({ error: 'Could not read torrent file' });
+  }
+}
+
+// Helper function to modify torrent announce URLs
+async function modifyTorrentAnnounceUrls(torrentBuffer: Buffer, passkey: string): Promise<Buffer> {
+  try {
+    const parsed = await parseTorrent(torrentBuffer);
+    
+    // Replace announce URLs with our tracker URL and user's passkey
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+    const newAnnounce = `${baseUrl}/announce?passkey=${passkey}`;
+    
+    // Create new torrent data with modified announce
+    const modifiedTorrent = {
+      ...parsed,
+      announce: newAnnounce,
+      'announce-list': [[newAnnounce]] // Replace announce list with our tracker
+    };
+    
+    // Re-encode the torrent
+    const encoded = bencode.encode(modifiedTorrent);
+    
+    return encoded;
+  } catch (err) {
+    console.error('[modifyTorrentAnnounceUrls] Error modifying torrent:', err);
+    // Return original buffer if modification fails
+    return torrentBuffer;
   }
 }
 
@@ -219,15 +271,52 @@ export async function listTorrentsHandler(request: FastifyRequest, reply: Fastif
       skip,
       take,
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, description: true, infoHash: true, size: true, createdAt: true, uploaderId: true }
+      select: { 
+        id: true, 
+        name: true, 
+        description: true, 
+        infoHash: true, 
+        size: true, 
+        createdAt: true, 
+        uploaderId: true,
+        uploader: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
+        category: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
     }),
     prisma.torrent.count({ where })
   ]);
+
+  // Calculate stats for each torrent
+  const torrentsWithStats = await Promise.all(
+    torrents.map(async (torrent) => {
+      const [seederLeecherCounts, completedCount] = await Promise.all([
+        getSeederLeecherCounts(torrent.id),
+        getCompletedCount(torrent.id)
+      ]);
+
+      return {
+        ...torrent,
+        size: torrent.size?.toString?.() ?? "0",
+        seeders: seederLeecherCounts.complete,
+        leechers: seederLeecherCounts.incomplete,
+        completed: completedCount,
+        category: torrent.category?.name || 'General'
+      };
+    })
+  );
+
   return reply.send({
-    torrents: torrents.map(t => ({
-      ...t,
-      size: t.size?.toString?.() ?? "0",
-    })),
+    torrents: torrentsWithStats,
     total,
     page: Number(page),
     limit: take
@@ -237,10 +326,38 @@ export async function listTorrentsHandler(request: FastifyRequest, reply: Fastif
 export async function getTorrentHandler(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as any;
   const user = (request as any).user;
-  const torrent = await prisma.torrent.findUnique({ where: { id } });
+  const torrent = await prisma.torrent.findUnique({ 
+    where: { id },
+    include: {
+      uploader: {
+        select: {
+          id: true,
+          username: true
+        }
+      },
+      category: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
+  });
   if (!torrent || !torrent.isApproved) return reply.status(404).send({ error: 'Torrent not found' });
+  
+  // Calculate torrent statistics
+  const [seederLeecherCounts, completedCount] = await Promise.all([
+    getSeederLeecherCounts(torrent.id),
+    getCompletedCount(torrent.id)
+  ]);
+
   const result = convertBigInts(torrent);
   result.posterUrl = torrent.posterUrl || null;
+  result.seeders = seederLeecherCounts.complete;
+  result.leechers = seederLeecherCounts.incomplete;
+  result.completed = completedCount;
+  result.category = torrent.category?.name || 'General';
+  
   // Add bookmarked property if user is logged in
   if (user && user.id) {
     const bookmark = await prisma.bookmark.findUnique({ where: { userId_torrentId: { userId: user.id, torrentId: id } } });
@@ -396,12 +513,28 @@ export async function listAllTorrentsHandler(request: FastifyRequest, reply: Fas
     }),
     prisma.torrent.count({ where })
   ]);
+
+  // Calculate stats for each torrent
+  const torrentsWithStats = await Promise.all(
+    torrents.map(async (torrent) => {
+      const [seederLeecherCounts, completedCount] = await Promise.all([
+        getSeederLeecherCounts(torrent.id),
+        getCompletedCount(torrent.id)
+      ]);
+
+      return {
+        ...torrent,
+        size: torrent.size?.toString?.() ?? "0",
+        seeders: seederLeecherCounts.complete,
+        leechers: seederLeecherCounts.incomplete,
+        completed: completedCount,
+        category: torrent.category?.name || 'General'
+      };
+    })
+  );
   
   return reply.send({
-    torrents: torrents.map(t => ({
-      ...t,
-      size: t.size?.toString?.() ?? "0",
-    })),
+    torrents: torrentsWithStats,
     total,
     page: Number(page),
     limit: take
@@ -425,7 +558,84 @@ export async function getTorrentStatsHandler(request: FastifyRequest, reply: Fas
     approved: approvedTorrents,
     pending: pendingTorrents
   });
-} 
+}
+
+export async function recalculateUserStatsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = (request as any).user;
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+
+  try {
+    // Get all users
+    const users = await prisma.user.findMany();
+    const results = [];
+
+    for (const userRecord of users) {
+      // Get all announces for this user, grouped by peerId
+      const announces = await prisma.announce.findMany({
+        where: { userId: userRecord.id },
+        orderBy: { lastAnnounceAt: 'asc' }
+      });
+
+      let totalUpload = BigInt(0);
+      let totalDownload = BigInt(0);
+
+      // Group announces by peerId to calculate deltas properly
+      const peerGroups: { [peerId: string]: any[] } = {};
+      announces.forEach(announce => {
+        if (!peerGroups[announce.peerId]) {
+          peerGroups[announce.peerId] = [];
+        }
+        peerGroups[announce.peerId].push(announce);
+      });
+
+      // Calculate totals for each peer
+      for (const [peerId, peerAnnounces] of Object.entries(peerGroups)) {
+        peerAnnounces.sort((a, b) => a.lastAnnounceAt.getTime() - b.lastAnnounceAt.getTime());
+        
+        let lastUploaded = BigInt(0);
+        let lastDownloaded = BigInt(0);
+
+        for (const announce of peerAnnounces) {
+          const uploadDelta = announce.uploaded - lastUploaded;
+          const downloadDelta = announce.downloaded - lastDownloaded;
+          
+          if (uploadDelta > BigInt(0)) totalUpload += uploadDelta;
+          if (downloadDelta > BigInt(0)) totalDownload += downloadDelta;
+          
+          lastUploaded = announce.uploaded;
+          lastDownloaded = announce.downloaded;
+        }
+      }
+
+      // Update user record
+      await prisma.user.update({
+        where: { id: userRecord.id },
+        data: {
+          upload: totalUpload,
+          download: totalDownload
+        }
+      });
+
+      results.push({
+        userId: userRecord.id,
+        username: userRecord.username,
+        upload: totalUpload.toString(),
+        download: totalDownload.toString(),
+        ratio: totalDownload > BigInt(0) ? Number(totalUpload) / Number(totalDownload) : 0
+      });
+    }
+
+    return reply.send({
+      message: 'User stats recalculated successfully',
+      results
+    });
+  } catch (error) {
+    console.error('[recalculateUserStatsHandler] Error:', error);
+    return reply.status(500).send({ error: 'Failed to recalculate user stats' });
+  }
+}
 
 const ALLOWED_IMAGE_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 const MAX_IMAGE_SIZE = 30 * 1024 * 1024; // 30MB 

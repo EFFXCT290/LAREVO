@@ -8,10 +8,15 @@ import { registerUserRoutes } from './routes/user.js';
 import { registerAnnounceRoutes } from './routes/announce.js';
 import { registerRssRoutes } from './routes/rss.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { checkHitAndRunGracePeriod } from './announce_features/hitAndRun.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ 
+  logger: {
+    level: 'error' // Only log errors, not all requests
+  }
+});
 
 // Register CORS with dynamic origin from .env
 await app.register(cors, {
@@ -62,8 +67,21 @@ await registerAdminRoutes(app);
 
 const start = async () => {
   try {
-    await app.listen({ port: 3001, host: '0.0.0.0' });
+    // Listen on both IPv4 and IPv6
+    await app.listen({ port: 3001, host: '::' });
     console.log('API server running on http://localhost:3001');
+    
+    // Start grace period hit and run check every 30 minutes
+    setInterval(async () => {
+      try {
+        await checkHitAndRunGracePeriod();
+      } catch (error) {
+        console.error('Error in grace period check:', error);
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+    
+    console.log('Grace period hit and run check scheduled every 30 minutes');
+    
   } catch (err) {
     app.log.error(err);
     process.exit(1);

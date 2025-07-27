@@ -14,9 +14,19 @@ export async function getActiveTorrentsHandler(request: FastifyRequest, reply: F
     select: { torrentId: true, left: true, event: true, lastAnnounceAt: true, torrent: { select: { id: true, name: true, infoHash: true, size: true, categoryId: true, createdAt: true } } }
   });
 
+  // Convert BigInt values to numbers for JSON serialization
+  const processedAnnounces = announces.map(a => ({
+    ...a,
+    left: Number(a.left),
+    torrent: {
+      ...a.torrent,
+      size: Number(a.torrent.size)
+    }
+  }));
+
   // Group by torrentId, keep the most recent announce for each
-  const latestByTorrent: Record<string, typeof announces[0]> = {};
-  for (const a of announces) {
+  const latestByTorrent: Record<string, typeof processedAnnounces[0]> = {};
+  for (const a of processedAnnounces) {
     if (!latestByTorrent[a.torrentId] || a.lastAnnounceAt > latestByTorrent[a.torrentId].lastAnnounceAt) {
       latestByTorrent[a.torrentId] = a;
     }
@@ -26,7 +36,7 @@ export async function getActiveTorrentsHandler(request: FastifyRequest, reply: F
   const seeding = [];
   const leeching = [];
   for (const a of Object.values(latestByTorrent)) {
-    if (a.left === BigInt(0)) seeding.push(a.torrent);
+    if (a.left === 0) seeding.push(a.torrent);
     else leeching.push(a.torrent);
   }
 

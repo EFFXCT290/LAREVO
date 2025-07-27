@@ -62,14 +62,19 @@ export async function rssFeedHandler(request: FastifyRequest, reply: FastifyRepl
     });
   }
 
-  // Build RSS feed
+  // Build RSS feed with direct torrent download links
   type Torrent = { id: string; name: string; description?: string | null; infoHash: string; createdAt: Date };
   const items = (torrents as Torrent[]).map((torrent: Torrent) => ({
     title: torrent.name,
-    link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/torrent/${torrent.id}`,
+    link: `${process.env.API_BASE_URL || 'http://localhost:3001'}/torrent/${torrent.id}/download?token=${token}`,
     description: torrent.description || '',
     pubDate: torrent.createdAt.toUTCString(),
-    infoHash: torrent.infoHash
+    infoHash: torrent.infoHash,
+    enclosure: {
+      '@_url': `${process.env.API_BASE_URL || 'http://localhost:3001'}/torrent/${torrent.id}/download?token=${token}`,
+      '@_type': 'application/x-bittorrent',
+      '@_length': '0'
+    }
   }));
 
   const feed = {

@@ -32,6 +32,7 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const router = useRouter();
@@ -39,6 +40,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -65,7 +67,15 @@ export default function RegisterPage() {
         localStorage.setItem("token", data.token);
         router.push("/dashboard");
       } else {
-        setError("Unexpected response from server");
+        // Registration successful but email verification required
+        setSuccess(data.message || "Registration successful! Please check your email for verification instructions.");
+        // Clear form
+        setFormData({
+          username: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+        });
       }
     } catch (err) {
       setError("Network error");
@@ -140,6 +150,7 @@ export default function RegisterPage() {
                 type="password"
               />
             {error && <div className="text-error text-sm">{error}</div>}
+            {success && <div className="text-success text-sm">{success}</div>}
             <button
               type="submit"
               disabled={loading}

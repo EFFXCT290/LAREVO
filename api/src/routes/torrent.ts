@@ -1,15 +1,24 @@
 import { FastifyInstance } from 'fastify';
 import { requireAuth } from '../middleware/authMiddleware.js';
-import { uploadTorrentHandler, listTorrentsHandler, getTorrentHandler, getNfoHandler, approveTorrentHandler, rejectTorrentHandler, listAllTorrentsHandler, getTorrentStatsHandler } from '../controllers/torrentController.js';
-import { downloadTorrentHandler } from '../controllers/torrentController.js';
+import { 
+  uploadTorrentHandler, 
+  listTorrentsHandler, 
+  getTorrentHandler, 
+  getNfoHandler, 
+  approveTorrentHandler, 
+  rejectTorrentHandler, 
+  listAllTorrentsHandler, 
+  getTorrentStatsHandler, 
+  recalculateUserStatsHandler,
+  downloadTorrentHandler
+} from '../controllers/torrentController.js';
 import { requireAuthIfNotOpen } from '../middleware/authOrOpenMiddleware.js';
 import {
   listCommentsForTorrentHandler,
   createCommentForTorrentHandler,
   editCommentHandler,
   deleteCommentHandler,
-  voteCommentHandler,
-  getCommentThreadHandler
+  voteCommentHandler
 } from '../controllers/commentController.js';
 
 export async function registerTorrentRoutes(app: FastifyInstance) {
@@ -22,6 +31,7 @@ export async function registerTorrentRoutes(app: FastifyInstance) {
   app.post('/admin/torrent/:id/reject', { preHandler: requireAuth }, rejectTorrentHandler); //DONE
   app.get('/admin/torrents', { preHandler: requireAuth }, listAllTorrentsHandler); //DONE
   app.get('/admin/torrents/stats', { preHandler: requireAuth }, getTorrentStatsHandler); //DONE
+  app.post('/admin/recalculate-user-stats', { preHandler: requireAuth }, recalculateUserStatsHandler); //DONE
   app.get('/torrent/:id/comments', listCommentsForTorrentHandler);
   app.post('/torrent/:id/comments', { preHandler: requireAuth }, createCommentForTorrentHandler);
   app.put('/comments/:commentId', { preHandler: requireAuth }, editCommentHandler);

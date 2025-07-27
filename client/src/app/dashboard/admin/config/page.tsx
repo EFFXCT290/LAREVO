@@ -34,7 +34,7 @@ const SMTP_FIELDS = [
   { key: "smtpHost", label: "SMTP Host" },
   { key: "smtpPort", label: "SMTP Port", type: "number" },
   { key: "smtpUser", label: "SMTP User" },
-  { key: "smtpPass", label: "SMTP Password" },
+  { key: "smtpPass", label: "SMTP Password", type: "password" },
   { key: "smtpFrom", label: "SMTP From Address" },
 ];
 
@@ -51,6 +51,9 @@ export default function AdminConfigPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -70,6 +73,39 @@ export default function AdminConfigPage() {
 
   const handleArrayInput = (key: string, value: string) => {
     setConfig((c: any) => ({ ...c, [key]: value.split(",").map(v => v.trim()).filter(Boolean) }));
+  };
+
+  const handleSmtpTest = async () => {
+    if (!testEmail) {
+      setSmtpTestResult("Please enter a test email address");
+      return;
+    }
+    
+    setTestingSmtp(true);
+    setSmtpTestResult(null);
+    
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`${API_BASE_URL}/admin/smtp/test`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ to: testEmail }),
+      });
+      
+      if (res.ok) {
+        setSmtpTestResult("✅ Test email sent successfully! Check your inbox.");
+      } else {
+        const error = await res.json();
+        setSmtpTestResult(`❌ Failed to send test email: ${error.error || error.details || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      setSmtpTestResult(`❌ Error: ${err.message || 'Failed to test SMTP configuration'}`);
+    } finally {
+      setTestingSmtp(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -166,9 +202,45 @@ export default function AdminConfigPage() {
                 label={field.label}
                 value={String(config[field.key] ?? "")}
                 onChange={val => handleInput(field.key, field.type === "number" ? Number(val) : val)}
-                type={field.type === "number" ? "number" : "text"}
+                type={field.type || "text"}
               />
             ))}
+          </div>
+          
+          {/* SMTP Test Section */}
+          <div className="mt-8 pt-6 border-t border-border/30">
+            <h3 className="text-lg font-semibold mb-4 text-text">Test SMTP Configuration</h3>
+            <p className="text-text-secondary text-sm mb-4">
+              Test your SMTP configuration by sending a test email. This will help verify that your email settings are correct.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              <div className="flex-1">
+                <FormField
+                  label="Test Email Address"
+                  value={testEmail}
+                  onChange={setTestEmail}
+                  type="email"
+                  placeholder="Enter email address to send test to"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSmtpTest}
+                disabled={testingSmtp || !testEmail}
+                className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow"
+              >
+                {testingSmtp ? "Sending..." : "Send Test Email"}
+              </button>
+            </div>
+            {smtpTestResult && (
+              <div className={`mt-4 p-4 rounded-lg text-sm ${
+                smtpTestResult.includes("✅") 
+                  ? "bg-green-500/10 border border-green-500/20 text-green-500" 
+                  : "bg-red-500/10 border border-red-500/20 text-red-500"
+              }`}>
+                {smtpTestResult}
+              </div>
+            )}
           </div>
         </div>
         {config.storageType === "S3" && (

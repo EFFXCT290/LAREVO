@@ -26,7 +26,16 @@ export default function VerifyPage() {
         const data = await res.json();
         if (res.ok) {
           setStatus("success");
-          setMessage("Your email has been verified! You can now log in.");
+          setMessage("Your email has been verified successfully!");
+          
+          // Check if user has a token (is logged in)
+          const existingToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+          if (existingToken) {
+            // User is already logged in, redirect to dashboard
+            setTimeout(() => {
+              router.push("/dashboard");
+            }, 2000);
+          }
         } else {
           setStatus("error");
           setMessage(data.error || "Verification failed.");
@@ -36,7 +45,7 @@ export default function VerifyPage() {
         setStatus("error");
         setMessage("Network error. Please try again.");
       });
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -47,7 +56,11 @@ export default function VerifyPage() {
           {status === "success" && (
             <>
               <div className="text-success text-lg mb-4">{message}</div>
-              <Link href="/login" className="w-full inline-block bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-dark transition shadow">Go to Login</Link>
+              {typeof window !== "undefined" && localStorage.getItem("token") ? (
+                <div className="text-text-secondary text-sm mb-4">Redirecting to dashboard...</div>
+              ) : (
+                <Link href="/login" className="w-full inline-block bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-dark transition shadow">Go to Login</Link>
+              )}
             </>
           )}
           {status === "error" && (

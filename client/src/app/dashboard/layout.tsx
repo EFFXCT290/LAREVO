@@ -27,13 +27,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const fetchProfile = async () => {
       setLoading(true);
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (!token) return;
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+      
       try {
         const res = await fetch(`${API_BASE_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error("Failed to fetch profile");
+        
+        if (!res.ok) {
+          localStorage.removeItem("token");
+          router.replace("/login");
+          return;
+        }
+        
         const data = await res.json();
+        
+        // Check if user is verified
+        if (data.emailVerified === false) {
+          router.replace("/unverified");
+          return;
+        }
+        
         setUser({
           name: data.username || data.email || "User",
           avatar: getAvatarUrl(data.avatarUrl, data.username, data.email),
@@ -55,13 +72,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           hitAndRun: data.hitAndRunCount?.toString() ?? "0",
           bonus: data.bonusPoints?.toString() ?? "0",
         });
-        setEmailVerified(data.emailVerified !== false);
-        // Redirect if not verified and not already on /unverified
-        if (data.emailVerified === false && typeof window !== "undefined" && !window.location.pathname.startsWith("/unverified")) {
-          router.replace("/unverified");
-        }
-      } catch {
-        // fallback to defaults
+        setEmailVerified(true);
+      } catch (err) {
+        localStorage.removeItem("token");
+        router.replace("/login");
       } finally {
         setLoading(false);
       }

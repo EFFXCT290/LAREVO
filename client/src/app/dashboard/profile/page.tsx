@@ -18,6 +18,19 @@ function getAvatarUrl(avatarUrl: string | null | undefined, username?: string, e
   return avatarUrl;
 }
 
+function formatBytes(bytes: number | string) {
+  const num = typeof bytes === "string" ? parseInt(bytes, 10) : bytes;
+  if (!num || num === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.floor(Math.log(num) / Math.log(k));
+  return parseFloat((num / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
+function formatRatio(ratio: number) {
+  return ratio.toFixed(2);
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -357,10 +370,10 @@ export default function ProfilePage() {
                   </div>
                   {/* Stats Card */}
                   <div className="bg-surface/50 backdrop-blur-lg rounded-2xl border border-border/50 shadow-2xl p-8 grid grid-cols-2 gap-4">
-                    <div><span className="font-semibold text-text">Ratio:</span> <span className="text-primary">{profile.ratio}</span></div>
+                    <div><span className="font-semibold text-text">Ratio:</span> <span className="text-primary">{formatRatio(profile.ratio)}</span></div>
                     <div><span className="font-semibold text-text">Bonus Points:</span> <span className="text-primary">{profile.bonusPoints}</span></div>
-                    <div><span className="font-semibold text-text">Uploaded:</span> <span className="text-primary">{profile.upload}</span></div>
-                    <div><span className="font-semibold text-text">Downloaded:</span> <span className="text-primary">{profile.download}</span></div>
+                    <div><span className="font-semibold text-text">Uploaded:</span> <span className="text-primary">{formatBytes(profile.upload)}</span></div>
+                    <div><span className="font-semibold text-text">Downloaded:</span> <span className="text-primary">{formatBytes(profile.download)}</span></div>
                     <div><span className="font-semibold text-text">Hit & Run Count:</span> <span className="text-error">{profile.hitAndRunCount}</span></div>
                     <div><span className="font-semibold text-text">Email Verified:</span> <span className="text-green">{profile.emailVerified ? "Yes" : "No"}</span></div>
                   </div>
@@ -376,7 +389,7 @@ export default function ProfilePage() {
                     ) : (
                       <ul className="ml-4 list-disc">
                         {activeTorrents.seeding.map(t => (
-                          <li key={t.id} className="text-sm">{t.name} <span className="text-xs text-text-tertiary">({t.infoHash})</span></li>
+                          <li key={t.id} className="text-sm text-text-secondary">{t.name} <span className="text-xs text-text-tertiary">({t.infoHash})</span></li>
                         ))}
                       </ul>
                     )}
@@ -388,7 +401,7 @@ export default function ProfilePage() {
                     ) : (
                       <ul className="ml-4 list-disc">
                         {activeTorrents.leeching.map(t => (
-                          <li key={t.id} className="text-sm">{t.name} <span className="text-xs text-text-tertiary">({t.infoHash})</span></li>
+                          <li key={t.id} className="text-sm text-text-secondary">{t.name} <span className="text-xs text-text-tertiary">({t.infoHash})</span></li>
                         ))}
                       </ul>
                     )}
@@ -529,7 +542,7 @@ export default function ProfilePage() {
                   </div>
                   {avatarPreview && (
                     <div className="flex flex-col items-center gap-2">
-                      <span className="text-xs text-text-tertiary">Preview:</span>
+                      <span className="text-xs text-text-secondary">Preview:</span>
                       <img src={avatarPreview} alt="Preview" className="w-20 h-20 rounded-full object-cover border border-border" />
                     </div>
                   )}

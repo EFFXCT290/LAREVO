@@ -8,6 +8,8 @@ export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string>("");
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcResult, setRecalcResult] = useState<any>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +52,37 @@ export default function AdminOverviewPage() {
     fetchData();
   }, [role]);
 
+  const handleRecalculateStats = async () => {
+    setRecalculating(true);
+    setRecalcResult(null);
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) return;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/recalculate-user-stats`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setRecalcResult(result);
+        // Refresh stats after recalculation
+        const statsRes = await fetch(`${API_BASE_URL}/admin/overview-stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        }
+      } else {
+        setError("Failed to recalculate stats");
+      }
+    } catch (err) {
+      setError("Failed to recalculate stats");
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-10 w-full max-w-7xl mx-auto">
       <div className="mb-2">
@@ -61,36 +94,63 @@ export default function AdminOverviewPage() {
       ) : error ? (
         <div className="text-error">{error}</div>
       ) : stats ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Users</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.users}</span>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Users</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.users}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Torrents</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.torrents}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Requests</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.requests}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Downloads</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.downloads}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Peers</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.peers}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Seeding</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.seeding}</span>
+            </div>
+            <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
+              <span className="text-lg font-semibold text-text">Leeching</span>
+              <span className="text-4xl font-bold text-primary mt-2">{stats.leeching}</span>
+            </div>
           </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Torrents</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.torrents}</span>
+
+          {/* Recalculate User Stats Section */}
+          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8">
+            <h2 className="text-xl font-bold text-text mb-4">User Statistics</h2>
+            <p className="text-text-secondary mb-4">
+              Recalculate user upload/download statistics from announce data. This will fix any discrepancies between the announce table and user table.
+            </p>
+            <button
+              onClick={handleRecalculateStats}
+              disabled={recalculating}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {recalculating ? "Recalculating..." : "Recalculate User Stats"}
+            </button>
+            
+            {recalcResult && (
+              <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <h3 className="font-semibold text-green-500 mb-2">Recalculation Complete</h3>
+                <p className="text-text-secondary text-sm mb-2">{recalcResult.message}</p>
+                <div className="text-xs text-text-secondary">
+                  <p>Updated {recalcResult.results?.length || 0} users</p>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Requests</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.requests}</span>
-          </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Downloads</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.downloads}</span>
-          </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Peers</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.peers}</span>
-          </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Seeding</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.seeding}</span>
-          </div>
-          <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 flex flex-col items-center">
-            <span className="text-lg font-semibold text-text">Leeching</span>
-            <span className="text-4xl font-bold text-primary mt-2">{stats.leeching}</span>
-          </div>
-        </div>
+        </>
       ) : null}
       {role === "owner" && config && (
         <div className="bg-surface/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-xl p-8 mt-8">

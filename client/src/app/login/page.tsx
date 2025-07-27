@@ -30,14 +30,16 @@ export default function LoginPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        if (data.code === "EMAIL_NOT_VERIFIED") {
-          router.push("/unverified");
-          return;
-        }
         setError(data.error || "Login failed");
       } else if (data.token) {
         localStorage.setItem("token", data.token);
-        router.push("/dashboard");
+        // Check if email is verified
+        if (data.emailVerified) {
+          router.push("/dashboard");
+        } else {
+          // User is logged in but email not verified, redirect to unverified page
+          router.push("/unverified");
+        }
       } else {
         setError("Unexpected response from server");
       }

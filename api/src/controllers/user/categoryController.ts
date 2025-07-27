@@ -1,5 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
+import { getSeederLeecherCounts, getCompletedCount } from '../../announce_features/peerList.js';
+
 const prisma = new PrismaClient();
 
 export async function listAllCategoriesHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -37,14 +39,46 @@ export async function listTorrentsByCategoryTitleHandler(request: FastifyRequest
     where: { categoryId: category.id, isApproved: true },
     skip,
     take: Number(limit),
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    include: {
+      uploader: {
+        select: {
+          id: true,
+          username: true
+        }
+      },
+      category: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    }
   });
+  
   const total = await prisma.torrent.count({ where: { categoryId: category.id, isApproved: true } });
+
+  // Calculate stats for each torrent
+  const torrentsWithStats = await Promise.all(
+    torrents.map(async (torrent) => {
+      const [seederLeecherCounts, completedCount] = await Promise.all([
+        getSeederLeecherCounts(torrent.id),
+        getCompletedCount(torrent.id)
+      ]);
+
+      return {
+        ...torrent,
+        size: torrent.size?.toString?.() ?? "0",
+        seeders: seederLeecherCounts.complete,
+        leechers: seederLeecherCounts.incomplete,
+        completed: completedCount,
+        category: torrent.category?.name || 'General'
+      };
+    })
+  );
+
   return reply.send({
-    torrents: torrents.map(t => ({
-      ...t,
-      size: t.size?.toString?.() ?? "0",
-    })),
+    torrents: torrentsWithStats,
     total,
     page: Number(page),
     limit: Number(limit)

@@ -72,9 +72,41 @@ export async function registerHandler(request: FastifyRequest, reply: FastifyRep
     }
   });
 
-  // TODO: Send verification email
+  // Send verification email
+  try {
+    // Generate verification token
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await prisma.emailVerificationToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      }
+    });
 
-  return reply.status(201).send({ id: user.id, email: user.email, username: user.username, role: user.role, passkey: user.passkey });
+    // Build verification link
+    const baseUrl = getFrontendBaseUrl();
+    const link = `${baseUrl}/verify?token=${token}`;
+
+    // Prepare email
+    const { text, html } = getVerificationEmail({ username: user.username, link });
+    await sendEmail({ to: user.email, subject: 'Verify your email address', text, html });
+
+    console.log(`[registerHandler] Verification email sent to ${user.email}`);
+  } catch (err) {
+    console.error('[registerHandler] Failed to send verification email:', err);
+    // Don't fail registration if email sending fails, but log the error
+  }
+
+  return reply.status(201).send({ 
+    id: user.id, 
+    email: user.email, 
+    username: user.username, 
+    role: user.role, 
+    passkey: user.passkey,
+    message: 'Registration successful. Please check your email for verification instructions.'
+  });
 }
 
 export async function loginHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -92,36 +124,55 @@ export async function loginHandler(request: FastifyRequest, reply: FastifyReply)
   if (!valid) {
     return reply.status(401).send({ error: 'Invalid credentials.' });
   }
-  // Block login if email is not verified
-  if (!user.emailVerified) {
-    return reply.status(403).send({ error: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' });
-  }
   // Only allow login if user is active
   if (user.status !== 'ACTIVE') {
     return reply.status(403).send({ error: 'Account is not active.' });
   }
-  // Issue JWT
+  
+  // Issue JWT (allow unverified users to login)
   const token = jwt.sign(
-    { id: user.id, email: user.email, username: user.username, role: user.role },
+    { 
+      id: user.id, 
+      email: user.email, 
+      username: user.username, 
+      role: user.role,
+      emailVerified: user.emailVerified 
+    },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
-  return reply.send({ token, user: { id: user.id, email: user.email, username: user.username, role: user.role } });
+  
+  return reply.send({ 
+    token, 
+    user: { 
+      id: user.id, 
+      email: user.email, 
+      username: user.username, 
+      role: user.role,
+      emailVerified: user.emailVerified 
+    },
+    emailVerified: user.emailVerified
+  });
 }
 
 export async function requestEmailVerificationHandler(request: FastifyRequest, reply: FastifyReply) {
   const user = (request as any).user;
   if (!user) return reply.status(401).send({ error: 'Unauthorized' });
+  
+  // Get current user status from database (not from JWT)
   const prismaUser = await prisma.user.findUnique({ where: { id: user.id } });
   if (!prismaUser) return reply.status(404).send({ error: 'User not found' });
+  
   if (prismaUser.emailVerified) {
     return reply.status(400).send({ error: 'Email already verified.' });
   }
+  
   // Invalidate previous tokens
   await prisma.emailVerificationToken.updateMany({
     where: { userId: user.id, used: false, expiresAt: { gt: new Date() } },
     data: { used: true }
   });
+  
   // Generate new token
   const token = randomUUID();
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -132,15 +183,19 @@ export async function requestEmailVerificationHandler(request: FastifyRequest, r
       expiresAt,
     }
   });
+  
   // Build verification link
   const baseUrl = getFrontendBaseUrl();
   const link = `${baseUrl}/verify?token=${token}`;
+  
   // Prepare email
   const { text, html } = getVerificationEmail({ username: prismaUser.username, link });
   try {
     await sendEmail({ to: prismaUser.email, subject: 'Verify your email address', text, html });
+    console.log(`[requestEmailVerificationHandler] Verification email sent to ${prismaUser.email}`);
     return reply.send({ success: true });
   } catch (err) {
+    console.error('[requestEmailVerificationHandler] Failed to send verification email:', err);
     return reply.status(500).send({ error: 'Failed to send verification email.' });
   }
 }

@@ -121,6 +121,8 @@ model Announce {
   left           BigInt   @default(0)
   event          String?
   lastAnnounceAt DateTime @default(now())
+
+  @@unique([torrentId, peerId])
 }
 
 model Invite {
