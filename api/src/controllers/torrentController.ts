@@ -17,6 +17,10 @@ function convertBigInts(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertBigInts);
   } else if (obj && typeof obj === 'object') {
+    // Handle Date objects specially - don't convert them
+    if (obj instanceof Date) {
+      return obj;
+    }
     return Object.fromEntries(
       Object.entries(obj).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : convertBigInts(v)])
     );
