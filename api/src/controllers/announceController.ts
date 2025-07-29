@@ -186,12 +186,38 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
     return reply.send(bencode.encode({ 'failure reason': ghostLeechMsg }));
   }
   
-  // Normalize IP address (convert IPv6-mapped IPv4 to IPv4)
+  // Get real client IP from various headers (Cloudflare, nginx, etc.)
   let normalizedIp = request.ip;
+  
+  // Check Cloudflare headers first
+  const cfConnectingIp = request.headers['cf-connecting-ip'];
+  const xForwardedFor = request.headers['x-forwarded-for'];
+  const xRealIp = request.headers['x-real-ip'];
+  
+  if (cfConnectingIp) {
+    normalizedIp = cfConnectingIp as string;
+    console.log('[announceHandler] Using Cloudflare IP:', normalizedIp);
+  } else if (xForwardedFor) {
+    // X-Forwarded-For can contain multiple IPs, take the first one
+    const ips = (xForwardedFor as string).split(',');
+    normalizedIp = ips[0].trim();
+    console.log('[announceHandler] Using X-Forwarded-For IP:', normalizedIp);
+  } else if (xRealIp) {
+    normalizedIp = xRealIp as string;
+    console.log('[announceHandler] Using X-Real-IP:', normalizedIp);
+  }
+  
+  // Log when using proxy headers for debugging
+  if (cfConnectingIp || xForwardedFor || xRealIp) {
+    console.log('[announceHandler] Using proxy headers - IP:', normalizedIp);
+  }
+  
+  // Normalize IP address (handle IPv6 mapped IPv4)
   if (normalizedIp.startsWith('::ffff:')) {
     normalizedIp = normalizedIp.substring(7); // Remove ::ffff: prefix
   }
-  console.log('[announceHandler] Original IP:', request.ip, 'Normalized IP:', normalizedIp);
+  
+  console.log('[announceHandler] Original IP:', request.ip, 'Final IP:', normalizedIp);
   
   // Update announce stats (upsert to avoid duplicate records)
   await prisma.announce.upsert({
