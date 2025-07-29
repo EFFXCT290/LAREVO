@@ -395,7 +395,7 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
   const downloadCount = await getCompletedCount(torrent.id);
   // Minimal tracker response with peer list and counts
   const response = {
-    'interval': 1800,
+    'interval': config.defaultAnnounceInterval,
     'complete': complete,
     'incomplete': incomplete,
     'downloaded': downloadCount,
