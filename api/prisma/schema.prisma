@@ -172,6 +172,8 @@ model Config {
   s3Region         String?
   s3AccessKeyId    String?
   s3SecretAccessKey String?
+  // Rank system config
+  ranksEnabled     Boolean @default(true)
 }
 
 enum RegMode {
@@ -394,4 +396,17 @@ model CommentVote {
   user      User     @relation(fields: [userId], references: [id])
   comment   Comment  @relation(fields: [commentId], references: [id])
   @@unique([userId, commentId])
+}
+
+model Rank {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  order       Int      @unique // Lower number = higher rank
+  minUpload   BigInt   @default(0)
+  minDownload BigInt   @default(0)
+  minRatio    Float    @default(0.0)
+  color       String?  // Hex color for display
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -193,12 +193,12 @@ export default function DashboardHeader({ user, stats }: DashboardHeaderProps) {
               <div className="w-px h-8 bg-border/50"></div>
               <div className="text-center">
                 <div className="text-xs font-medium text-text-secondary uppercase tracking-wide">Up</div>
-                <div className="text-sm font-bold text-green-500">{stats.uploaded}</div>
+                <div className="text-sm font-bold text-green">{stats.uploaded}</div>
               </div>
               <div className="w-px h-8 bg-border/50"></div>
               <div className="text-center">
                 <div className="text-xs font-medium text-text-secondary uppercase tracking-wide">Down</div>
-                <div className="text-sm font-bold text-blue-500">{stats.downloaded}</div>
+                <div className="text-sm font-bold text-primary">{stats.downloaded}</div>
               </div>
               <div className="w-px h-8 bg-border/50"></div>
               <div className="text-center">

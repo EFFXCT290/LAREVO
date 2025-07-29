@@ -319,7 +319,14 @@ export default function ProfilePage() {
             <div className="text-xs text-text-secondary">{profile?.email}</div>
             <div className="text-xs text-primary">{profile?.role}</div>
             <div className="text-xs text-text">Status: {profile?.status || '—'}</div>
-            <div className="text-xs text-text">Rank: {profile?.rank || '—'}</div>
+            <div className="text-xs text-text">
+              Rank: {profile?.rank || '—'}
+              {profile?.rankData?.nextRank && (
+                <div className="text-xs text-text-secondary mt-1">
+                  Next: {profile.rankData.nextRank.name}
+                </div>
+              )}
+            </div>
           </div>
           {/* Section links */}
           <nav className="flex flex-col w-full gap-2 mt-4">
@@ -377,6 +384,65 @@ export default function ProfilePage() {
                     <div><span className="font-semibold text-text">Hit & Run Count:</span> <span className="text-error">{profile.hitAndRunCount}</span></div>
                     <div><span className="font-semibold text-text">Email Verified:</span> <span className="text-green">{profile.emailVerified ? "Yes" : "No"}</span></div>
                   </div>
+                  
+                  {/* Rank Progress Card */}
+                  {profile?.rankData && (
+                    <div className="bg-surface/50 backdrop-blur-lg rounded-2xl border border-border/50 shadow-2xl p-8">
+                      <div className="font-semibold text-primary mb-4">Rank Progress</div>
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-text">Current Rank:</span>
+                          <span className="font-semibold text-text">{profile.rank || 'None'}</span>
+                        </div>
+                        {profile.rankData.nextRank && (
+                          <>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-text">Next Rank:</span>
+                              <span className="font-semibold text-text">{profile.rankData.nextRank.name}</span>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="text-text-secondary">Upload Progress</span>
+                                  <span className="text-text-secondary">{Math.round(profile.rankData.progress.upload)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-green h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${profile.rankData.progress.upload}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="text-text-secondary">Download Progress</span>
+                                  <span className="text-text-secondary">{Math.round(profile.rankData.progress.download)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-primary h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${profile.rankData.progress.download}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="text-text-secondary">Ratio Progress</span>
+                                  <span className="text-text-secondary">{Math.round(profile.rankData.progress.ratio)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-yellow-500 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${profile.rankData.progress.ratio}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               {section === "torrents" && (

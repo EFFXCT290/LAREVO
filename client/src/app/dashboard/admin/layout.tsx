@@ -12,6 +12,7 @@ const SIDEBAR_ITEMS = [
   { key: "torrents-approval", label: "Torrent Approval" },
   {key: "torrents", label: "Torrent Management"},
   { key: "categories", label: "Categories" },
+  { key: "ranks", label: "Ranks" },
   { key: "announcements", label: "Announcements" },
   { key: "requests", label: "Requests" },
   { key: "wiki", label: "Wiki" },
