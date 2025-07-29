@@ -10,6 +10,7 @@ import { getRssTokenHandler, regenerateRssTokenHandler } from '../controllers/us
 import { getActiveTorrentsHandler } from '../controllers/user/userActiveTorrentController.js';
 import { uploadAvatarHandler, disableSelfHandler } from '../controllers/authController.js';
 import { getCommentThreadHandler } from '../controllers/commentController.js';
+import { createUserInviteHandler, listUserInvitesHandler } from '../controllers/user/inviteController.js';
 
 export async function registerUserRoutes(app: FastifyInstance) {
   app.get('/notifications', { preHandler: requireAuth }, getUserNotificationsHandler); //DONE
@@ -38,4 +39,7 @@ export async function registerUserRoutes(app: FastifyInstance) {
   app.get('/user/active-torrents', { preHandler: requireAuth }, getActiveTorrentsHandler);
   app.post('/user/avatar', { preHandler: requireAuth }, uploadAvatarHandler);
   app.post('/user/disable', { preHandler: requireAuth }, disableSelfHandler);
+  // Invite routes
+  app.post('/user/invites', { preHandler: requireAuth }, createUserInviteHandler);
+  app.get('/user/invites', { preHandler: requireAuth }, listUserInvitesHandler);
 } 

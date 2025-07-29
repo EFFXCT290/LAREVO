@@ -41,7 +41,25 @@ export async function registerHandler(request: FastifyRequest, reply: FastifyRep
   if (config.registrationMode === 'INVITE' && !inviteCode) {
     return reply.status(400).send({ error: 'Invite code required.' });
   }
-  // TODO: Validate invite code if needed
+  
+  // Validate invite code if registration mode is INVITE
+  if (config.registrationMode === 'INVITE' && inviteCode) {
+    const invite = await prisma.invite.findUnique({
+      where: { code: inviteCode }
+    });
+    
+    if (!invite) {
+      return reply.status(400).send({ error: 'Invalid invite code.' });
+    }
+    
+    if (invite.usedById) {
+      return reply.status(400).send({ error: 'Invite code has already been used.' });
+    }
+    
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      return reply.status(400).send({ error: 'Invite code has expired.' });
+    }
+  }
 
   // Check if user/email already exists
   const existing = await prisma.user.findFirst({
@@ -61,16 +79,32 @@ export async function registerHandler(request: FastifyRequest, reply: FastifyRep
   // Generate unique passkey
   const passkey = randomUUID().replace(/-/g, '');
 
-  const user = await prisma.user.create({
-    data: {
-      email,
-      username,
-      passwordHash,
-      role,
-      emailVerified: false,
-      status: 'ACTIVE',
-      passkey,
+  // Create user and mark invite as used in a transaction
+  const user = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.user.create({
+      data: {
+        email,
+        username,
+        passwordHash,
+        role,
+        emailVerified: false,
+        status: 'ACTIVE',
+        passkey,
+      }
+    });
+
+    // Mark invite as used if registration mode is INVITE
+    if (config.registrationMode === 'INVITE' && inviteCode) {
+      await tx.invite.update({
+        where: { code: inviteCode },
+        data: {
+          usedById: newUser.id,
+          usedAt: new Date()
+        }
+      });
     }
+
+    return newUser;
   });
 
   // Send verification email

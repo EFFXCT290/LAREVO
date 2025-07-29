@@ -12,17 +12,25 @@ import { getSeederLeecherCounts, getCompletedCount } from '../announce_features/
 
 const prisma = new PrismaClient();
 
-// Helper to convert BigInt fields to strings recursively
+// Helper to convert BigInt fields to strings recursively and preserve Date objects
 function convertBigInts(obj: any): any {
   if (Array.isArray(obj)) {
     return obj.map(convertBigInts);
   } else if (obj && typeof obj === 'object') {
-    // Handle Date objects specially - don't convert them
+    // Check if it's a Date object
     if (obj instanceof Date) {
-      return obj;
+      return obj.toISOString();
     }
     return Object.fromEntries(
-      Object.entries(obj).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : convertBigInts(v)])
+      Object.entries(obj).map(([k, v]) => {
+        if (typeof v === 'bigint') {
+          return [k, v.toString()];
+        } else if (v instanceof Date) {
+          return [k, v.toISOString()];
+        } else {
+          return [k, convertBigInts(v)];
+        }
+      })
     );
   }
   return obj;

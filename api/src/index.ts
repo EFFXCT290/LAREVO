@@ -9,6 +9,7 @@ import { registerAnnounceRoutes } from './routes/announce.js';
 import { registerRssRoutes } from './routes/rss.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { checkHitAndRunGracePeriod } from './announce_features/hitAndRun.js';
+import { getPublicConfigHandler } from './controllers/configController.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -28,6 +29,9 @@ await app.register(cors, {
 app.get('/health', async (request, reply) => {
   return { status: 'ok' };
 });
+
+// Public config endpoint for registration mode
+app.get('/config', getPublicConfigHandler);
 
 // Register static file serving for uploads
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';

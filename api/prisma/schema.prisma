@@ -145,6 +145,7 @@ model Config {
   requiredSeedingMinutes Int @default(4320) // 72 hours
   minRatio Float @default(0.5)
   bonusPointsPerHour Int @default(1)
+  bonusPointsPerInvite Int @default(100) // Bonus points required to create an invite
   hitAndRunThreshold Int @default(5)
   enableGhostLeechingCheck Boolean @default(true)
   enableCheatingClientCheck Boolean @default(true)

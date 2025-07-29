@@ -11,6 +11,14 @@ export async function getConfigHandler(request: FastifyRequest, reply: FastifyRe
   return reply.send(config);
 }
 
+export async function getPublicConfigHandler(request: FastifyRequest, reply: FastifyReply) {
+  const config = await getConfig();
+  // Only return public config fields
+  return reply.send({
+    registrationMode: config.registrationMode
+  });
+}
+
 export async function updateConfigHandler(request: FastifyRequest, reply: FastifyReply) {
   // Assume admin check is done in middleware
   const data = request.body as any;

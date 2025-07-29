@@ -29,6 +29,11 @@ import {
   getRankSystemStatusHandler,
   toggleRankSystemHandler
 } from '../controllers/admin/adminRankController.js';
+import {
+  listAllInvitesHandler,
+  createInviteHandler,
+  deleteInviteHandler
+} from '../controllers/admin/adminInviteController.js';
 
 export async function registerAdminRoutes(app: FastifyInstance) {
   app.post('/admin/user/:id/ban', { preHandler: requireAuth }, banUserHandler); //DONE
@@ -81,5 +86,9 @@ export async function registerAdminRoutes(app: FastifyInstance) {
   app.delete('/admin/ranks/:id', { preHandler: requireAuth }, deleteRankHandler);
   app.get('/admin/ranks/status', { preHandler: requireAuth }, getRankSystemStatusHandler);
   app.post('/admin/ranks/toggle', { preHandler: requireAuth }, toggleRankSystemHandler);
+  // Invite management routes
+  app.get('/admin/invites', { preHandler: requireAuth }, listAllInvitesHandler);
+  app.post('/admin/invites', { preHandler: requireAuth }, createInviteHandler);
+  app.delete('/admin/invites/:id', { preHandler: requireAuth }, deleteInviteHandler);
 
 } 

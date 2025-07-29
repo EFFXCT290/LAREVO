@@ -6,6 +6,7 @@ import { API_BASE_URL } from "@/app/lib/api";
 const SECTIONS = [
   { key: "overview", label: "Overview" },
   { key: "torrents", label: "Active Torrents" },
+  { key: "invites", label: "Invites" },
   { key: "security", label: "Security" },
 ];
 
@@ -62,6 +63,11 @@ export default function ProfilePage() {
   const [rssMsg, setRssMsg] = useState("");
   const [rssToken, setRssToken] = useState("");
   const [activeTorrents, setActiveTorrents] = useState<{ seeding: any[]; leeching: any[] }>({ seeding: [], leeching: [] });
+  // Invite state
+  const [userInvites, setUserInvites] = useState<any[]>([]);
+  const [createInviteLoading, setCreateInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
   const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const baseUrl = API_BASE_URL;
@@ -177,6 +183,14 @@ export default function ProfilePage() {
         const torrentsData = await torrentsRes.json();
         setActiveTorrents({ seeding: torrentsData.seeding || [], leeching: torrentsData.leeching || [] });
       }
+      // Fetch user invites
+      const invitesRes = await fetch(`${API_BASE_URL}/user/invites`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (invitesRes.ok) {
+        const invitesData = await invitesRes.json();
+        setUserInvites(invitesData.invites || []);
+      }
     } catch {
       setError("Failed to load profile.");
     } finally {
@@ -287,6 +301,40 @@ export default function ProfilePage() {
       setError(err.message || "Failed to disable account.");
     } finally {
       setDisableLoading(false);
+    }
+  };
+
+  const handleCreateInvite = async () => {
+    setCreateInviteLoading(true);
+    setInviteError("");
+    setInviteSuccess("");
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      setInviteError("You must be logged in.");
+      setCreateInviteLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/user/invites`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to create invite");
+      }
+      const data = await res.json();
+      setUserInvites([data.invite, ...userInvites]);
+      setInviteSuccess(data.message || "Invite created successfully!");
+      // Refresh profile to update bonus points
+      await fetchProfile();
+      setTimeout(() => setInviteSuccess(""), 3000);
+    } catch (err: any) {
+      setInviteError(err.message || "Failed to create invite.");
+    } finally {
+      setCreateInviteLoading(false);
     }
   };
 
@@ -470,6 +518,75 @@ export default function ProfilePage() {
                           <li key={t.id} className="text-sm text-text-secondary">{t.name} <span className="text-xs text-text-tertiary">({t.infoHash})</span></li>
                         ))}
                       </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+              {section === "invites" && (
+                <div className="bg-surface/50 backdrop-blur-lg rounded-2xl border border-border/50 shadow-2xl p-8 flex flex-col gap-4">
+                  <div className="font-semibold text-primary mb-2">Invites</div>
+                  
+                  {inviteError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-lg">
+                      {inviteError}
+                    </div>
+                  )}
+                  
+                  {inviteSuccess && (
+                    <div className="bg-green-500/10 border border-green-500/20 text-green-500 px-4 py-3 rounded-lg">
+                      {inviteSuccess}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-text-secondary">Bonus Points: {profile?.bonusPoints || 0}</div>
+                      <div className="text-xs text-text-tertiary">Create invites to invite new users to the tracker</div>
+                      <div className="text-xs text-text-tertiary mt-1">Click "Copy Link" to share the full registration URL</div>
+                    </div>
+                    <button 
+                      className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/80 transition text-sm disabled:opacity-50"
+                      onClick={handleCreateInvite}
+                      disabled={createInviteLoading}
+                    >
+                      {createInviteLoading ? "Creating..." : "Create Invite"}
+                    </button>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h3 className="font-semibold text-text mb-2">Your Invites</h3>
+                    {userInvites.length === 0 ? (
+                      <div className="text-text-secondary text-sm">No invites created yet.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {userInvites.map((invite) => (
+                          <div key={invite.id} className="bg-bg/50 rounded-lg p-3 border border-border/30">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="font-mono text-sm text-text">{invite.code}</div>
+                                <div className="text-xs text-text-secondary">
+                                  Created: {new Date(invite.createdAt).toLocaleDateString()}
+                                  {invite.expiresAt && ` • Expires: ${new Date(invite.expiresAt).toLocaleDateString()}`}
+                                </div>
+                                <div className="text-xs text-text-secondary">
+                                  Status: {invite.usedBy ? "Used by " + invite.usedBy.username : "Active"}
+                                </div>
+                              </div>
+                              {!invite.usedBy && (
+                                <button
+                                  onClick={() => {
+                                    const registrationUrl = `${window.location.origin}/register?invite=${invite.code}`;
+                                    handleCopy(registrationUrl, setCopyMsg);
+                                  }}
+                                  className="text-primary hover:underline text-xs"
+                                >
+                                  Copy Link
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

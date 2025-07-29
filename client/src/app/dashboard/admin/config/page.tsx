@@ -11,6 +11,7 @@ const CONFIG_FIELDS = [
   { key: "requiredSeedingMinutes", label: "Required Seeding Minutes", type: "number" },
   { key: "minRatio", label: "Minimum Ratio", type: "number" },
   { key: "bonusPointsPerHour", label: "Bonus Points Per Hour", type: "number" },
+  { key: "bonusPointsPerInvite", label: "Bonus Points Per Invite", type: "number" },
   { key: "hitAndRunThreshold", label: "Hit & Run Threshold", type: "number" },
   { key: "enableGhostLeechingCheck", label: "Enable Ghost Leeching Check", type: "toggle" },
   { key: "enableCheatingClientCheck", label: "Enable Cheating Client Check", type: "toggle" },

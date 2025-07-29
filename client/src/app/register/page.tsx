@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormField } from "../../components/ui/FigmaFloatingLabelInput";
@@ -30,12 +30,39 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    inviteCode: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
+  const [registrationMode, setRegistrationMode] = useState<string>("OPEN");
   const router = useRouter();
+
+  // Check for invite code in URL parameters on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode) {
+      setFormData(prev => ({ ...prev, inviteCode }));
+    }
+  }, []);
+
+  // Check registration mode on component mount
+  useEffect(() => {
+    const checkRegistrationMode = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/config`);
+        if (response.ok) {
+          const config = await response.json();
+          setRegistrationMode(config.registrationMode);
+        }
+      } catch (error) {
+        console.error('Failed to fetch registration mode:', error);
+      }
+    };
+    checkRegistrationMode();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +76,14 @@ export default function RegisterPage() {
       setError("Password must be at least 6 characters");
       return;
     }
+    if (registrationMode === "INVITE" && !formData.inviteCode.trim()) {
+      setError("Invite code is required for registration");
+      return;
+    }
+    if (registrationMode === "CLOSED") {
+      setError("Registration is currently closed");
+      return;
+    }
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
@@ -58,6 +93,7 @@ export default function RegisterPage() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
+          inviteCode: formData.inviteCode,
         }),
       });
       const data = await response.json();
@@ -75,6 +111,7 @@ export default function RegisterPage() {
           email: "",
           password: "",
           confirmPassword: "",
+          inviteCode: "",
         });
       }
     } catch (err) {
@@ -110,10 +147,16 @@ export default function RegisterPage() {
               </div>
               <h1 className="text-2xl font-bold text-text mb-2">Register</h1>
               <p className="text-text-secondary text-sm">Create your account to get started</p>
+              {registrationMode === "INVITE" && (
+                <p className="text-primary text-sm mt-2">Registration requires an invite code</p>
+              )}
+              {registrationMode === "CLOSED" && (
+                <p className="text-error text-sm mt-2">Registration is currently closed</p>
+              )}
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className={`space-y-6 ${registrationMode === "CLOSED" ? "opacity-50 pointer-events-none" : ""}`}>
               <FormField
                 label="Username"
                 value={formData.username}
@@ -128,6 +171,15 @@ export default function RegisterPage() {
                 placeholder="Enter your email"
                 type="email"
               />
+              {registrationMode === "INVITE" && (
+                <FormField
+                  label="Invite Code *"
+                  value={formData.inviteCode}
+                  onChange={value => setFormData(prev => ({ ...prev, inviteCode: value }))}
+                  placeholder="Enter your invite code"
+                  type="text"
+                />
+              )}
               <div className="space-y-2">
                 <FormField
                   label="Password"
@@ -153,7 +205,7 @@ export default function RegisterPage() {
             {success && <div className="text-success text-sm">{success}</div>}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || registrationMode === "CLOSED"}
                 className="w-full bg-primary text-background py-3 rounded-lg font-semibold hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading && (
