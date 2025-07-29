@@ -7,11 +7,19 @@ import {
   getNfoHandler, 
   approveTorrentHandler, 
   rejectTorrentHandler, 
-  listAllTorrentsHandler, 
-  getTorrentStatsHandler, 
+  listAllTorrentsHandler,
+  getTorrentStatsHandler,
   recalculateUserStatsHandler,
   downloadTorrentHandler
 } from '../controllers/torrentController.js';
+import {
+  listAllTorrentsForAdminHandler,
+  getTorrentForAdminHandler,
+  updateTorrentHandler,
+  deleteTorrentHandler,
+  setFreeleechHandler,
+  getTorrentDetailedStatsHandler
+} from '../controllers/admin/adminTorrentController.js';
 import { requireAuthIfNotOpen } from '../middleware/authOrOpenMiddleware.js';
 import {
   listCommentsForTorrentHandler,
@@ -29,8 +37,14 @@ export async function registerTorrentRoutes(app: FastifyInstance) {
   app.get('/torrent/:id/nfo', { preHandler: requireAuthIfNotOpen }, getNfoHandler); //DONE
   app.post('/admin/torrent/:id/approve', { preHandler: requireAuth }, approveTorrentHandler); //DONE
   app.post('/admin/torrent/:id/reject', { preHandler: requireAuth }, rejectTorrentHandler); //DONE
-  app.get('/admin/torrents', { preHandler: requireAuth }, listAllTorrentsHandler); //DONE
-  app.get('/admin/torrents/stats', { preHandler: requireAuth }, getTorrentStatsHandler); //DONE
+  app.get('/admin/torrents', { preHandler: requireAuth }, listAllTorrentsHandler); //DONE - General admin listing
+  app.get('/admin/torrents/stats', { preHandler: requireAuth }, getTorrentStatsHandler); //DONE - General stats
+  app.get('/admin/torrents/manage', { preHandler: requireAuth }, listAllTorrentsForAdminHandler); //DONE - Management listing
+  app.get('/admin/torrents/manage/:id', { preHandler: requireAuth }, getTorrentForAdminHandler);
+  app.put('/admin/torrents/manage/:id', { preHandler: requireAuth }, updateTorrentHandler);
+  app.delete('/admin/torrents/manage/:id', { preHandler: requireAuth }, deleteTorrentHandler);
+  app.post('/admin/torrents/manage/:id/freeleech', { preHandler: requireAuth }, setFreeleechHandler);
+  app.get('/admin/torrents/manage/:id/stats', { preHandler: requireAuth }, getTorrentDetailedStatsHandler);
   app.post('/admin/recalculate-user-stats', { preHandler: requireAuth }, recalculateUserStatsHandler); //DONE
   app.get('/torrent/:id/comments', listCommentsForTorrentHandler);
   app.post('/torrent/:id/comments', { preHandler: requireAuth }, createCommentForTorrentHandler);

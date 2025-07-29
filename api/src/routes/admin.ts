@@ -35,6 +35,7 @@ import {
   deleteInviteHandler
 } from '../controllers/admin/adminInviteController.js';
 
+
 export async function registerAdminRoutes(app: FastifyInstance) {
   app.post('/admin/user/:id/ban', { preHandler: requireAuth }, banUserHandler); //DONE
   app.post('/admin/user/:id/unban', { preHandler: requireAuth }, unbanUserHandler); //DONE
@@ -90,5 +91,7 @@ export async function registerAdminRoutes(app: FastifyInstance) {
   app.get('/admin/invites', { preHandler: requireAuth }, listAllInvitesHandler);
   app.post('/admin/invites', { preHandler: requireAuth }, createInviteHandler);
   app.delete('/admin/invites/:id', { preHandler: requireAuth }, deleteInviteHandler);
+
+
 
 } 
