@@ -219,6 +219,42 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
   
   console.log('[announceHandler] Original IP:', request.ip, 'Final IP:', normalizedIp);
   
+  // Get existing announce record to preserve upload/download totals
+  const existingAnnounce = await prisma.announce.findUnique({
+    where: {
+      torrentId_peerId: {
+        torrentId: torrent.id,
+        peerId: peer_id
+      }
+    }
+  });
+
+  // Calculate upload/download totals - accumulate deltas properly
+  let finalUploaded = BigInt(uploaded || 0);
+  let finalDownloaded = BigInt(downloaded || 0);
+  
+  if (existingAnnounce) {
+    // Calculate the delta since last announce
+    const uploadDelta = BigInt(uploaded || 0) - existingAnnounce.uploaded;
+    const downloadDelta = BigInt(downloaded || 0) - existingAnnounce.downloaded;
+    
+    // If deltas are negative (client restart), treat as new session
+    // If deltas are positive, accumulate them
+    if (uploadDelta >= 0) {
+      finalUploaded = existingAnnounce.uploaded + uploadDelta;
+    } else {
+      // Client restart - add the new session data to existing total
+      finalUploaded = existingAnnounce.uploaded + BigInt(uploaded || 0);
+    }
+    
+    if (downloadDelta >= 0) {
+      finalDownloaded = existingAnnounce.downloaded + downloadDelta;
+    } else {
+      // Client restart - add the new session data to existing total
+      finalDownloaded = existingAnnounce.downloaded + BigInt(downloaded || 0);
+    }
+  }
+
   // Update announce stats (upsert to avoid duplicate records)
   await prisma.announce.upsert({
     where: {
@@ -230,8 +266,8 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
     update: {
       ip: normalizedIp,
       port: Number(port),
-      uploaded: BigInt(uploaded || 0),
-      downloaded: BigInt(downloaded || 0),
+      uploaded: finalUploaded,
+      downloaded: finalDownloaded,
       left: BigInt(left || 0),
       event,
       lastAnnounceAt: new Date()
@@ -252,8 +288,39 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
   console.log(`[announceHandler] Raw values - uploaded: ${uploaded}, downloaded: ${downloaded}, left: ${left}, event: ${event}`);
   console.log(`[announceHandler] User: ${user.username} (${user.id}), Peer: ${peer_id}, Torrent: ${torrent.name}`);
 
+  // Calculate deltas for ratio update (only the new upload/download since last announce)
+  let uploadDelta = BigInt(0);
+  let downloadDelta = BigInt(0);
+  
+  if (existingAnnounce) {
+    // Calculate the actual delta since last announce
+    const rawUploadDelta = BigInt(uploaded || 0) - existingAnnounce.uploaded;
+    const rawDownloadDelta = BigInt(downloaded || 0) - existingAnnounce.downloaded;
+    
+    // For ratio updates, we only count positive deltas (normal progression)
+    // If negative (client restart), we count the new session data
+    if (rawUploadDelta >= 0) {
+      uploadDelta = rawUploadDelta;
+    } else {
+      uploadDelta = BigInt(uploaded || 0); // New session data
+    }
+    
+    if (rawDownloadDelta >= 0) {
+      downloadDelta = rawDownloadDelta;
+    } else {
+      downloadDelta = BigInt(downloaded || 0); // New session data
+    }
+    
+    console.log(`[announceHandler] Existing totals - uploaded: ${existingAnnounce.uploaded}, downloaded: ${existingAnnounce.downloaded}`);
+    console.log(`[announceHandler] Final totals - uploaded: ${finalUploaded}, downloaded: ${finalDownloaded}`);
+    console.log(`[announceHandler] Deltas for ratio - uploaded: ${uploadDelta}, downloaded: ${downloadDelta}`);
+  } else {
+    uploadDelta = finalUploaded;
+    downloadDelta = finalDownloaded;
+  }
+
   // Update user ratio
-  await updateUserRatio(user.id, BigInt(uploaded || 0), BigInt(downloaded || 0), peer_id, torrent.id);
+  await updateUserRatio(user.id, uploadDelta, downloadDelta, peer_id, torrent.id);
 
   // Award bonus points for seeding (if left == 0)
   if (BigInt(left || 0) === BigInt(0)) {
