@@ -44,49 +44,49 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
     if (info_hash.length === 40 && /^[0-9a-fA-F]+$/.test(info_hash)) {
       infoHashHex = info_hash.toLowerCase();
     } else {
-      // Check if it's URL-encoded (contains % characters)
-      if (info_hash.includes('%')) {
-        try {
-          // Manual URL decoding for malformed URLs
-          let decoded = info_hash;
-          
-          // Replace common percent-encoded sequences
-          const percentDecodeMap: { [key: string]: string } = {
-            '%ae': '\xae',
-            '%e4': '\xe4',
-            '%db': '\xdb',
-            '%ed': '\xed',
-            '%02': '\x02',
-            '%01': '\x01',
-            '%2c': '\x2c',
-            '%05': '\x05',
-            '%c0': '\xc0',
-            '%d2': '\xd2',
-            '%e8': '\xe8',
-            '%f6': '\xf6'
-          };
-          
-          for (const [encoded, replacement] of Object.entries(percentDecodeMap)) {
-            decoded = decoded.replace(new RegExp(encoded, 'g'), replacement);
-          }
-          
-          console.log('[announceHandler] Manually decoded:', decoded);
-          console.log('[announceHandler] Manually decoded length:', decoded.length);
-          console.log('[announceHandler] Manually decoded as hex:', Buffer.from(decoded, 'binary').toString('hex'));
-          
-          // The decoded string should be 20 bytes of binary data
-          if (decoded.length === 20) {
-            infoHashHex = Buffer.from(decoded, 'binary').toString('hex');
-          } else {
-            // Fallback: treat as binary directly
+              // Check if it's URL-encoded (contains % characters)
+        if (info_hash.includes('%')) {
+          try {
+            // Manual URL decoding for malformed URLs - handle both uppercase and lowercase
+            let decoded = info_hash;
+            
+            // Replace common percent-encoded sequences (handle both uppercase and lowercase)
+            const percentDecodeMap: { [key: string]: string } = {
+              '%ae': '\xae', '%AE': '\xae',
+              '%e4': '\xe4', '%E4': '\xe4',
+              '%db': '\xdb', '%DB': '\xdb',
+              '%ed': '\xed', '%ED': '\xed',
+              '%02': '\x02',
+              '%01': '\x01',
+              '%2c': '\x2c', '%2C': '\x2c',
+              '%05': '\x05',
+              '%c0': '\xc0', '%C0': '\xc0',
+              '%d2': '\xd2', '%D2': '\xd2',
+              '%e8': '\xe8', '%E8': '\xe8',
+              '%f6': '\xf6', '%F6': '\xf6'
+            };
+            
+            for (const [encoded, replacement] of Object.entries(percentDecodeMap)) {
+              decoded = decoded.replace(new RegExp(encoded, 'g'), replacement);
+            }
+            
+            console.log('[announceHandler] Manually decoded:', decoded);
+            console.log('[announceHandler] Manually decoded length:', decoded.length);
+            console.log('[announceHandler] Manually decoded as hex:', Buffer.from(decoded, 'binary').toString('hex'));
+            
+            // The decoded string should be 20 bytes of binary data
+            if (decoded.length === 20) {
+              infoHashHex = Buffer.from(decoded, 'binary').toString('hex');
+            } else {
+              // Fallback: treat as binary directly
+              infoHashHex = Buffer.from(info_hash, 'binary').toString('hex');
+            }
+          } catch (error) {
+            // If manual decode fails, treat as binary data directly
+            console.log('[announceHandler] Manual decode failed, treating as binary:', error instanceof Error ? error.message : String(error));
             infoHashHex = Buffer.from(info_hash, 'binary').toString('hex');
           }
-        } catch (error) {
-          // If manual decode fails, treat as binary data directly
-          console.log('[announceHandler] Manual decode failed, treating as binary:', error instanceof Error ? error.message : String(error));
-          infoHashHex = Buffer.from(info_hash, 'binary').toString('hex');
-        }
-      } else {
+        } else {
         // Otherwise treat as binary and convert to hex
         infoHashHex = Buffer.from(info_hash, 'binary').toString('hex');
       }
@@ -394,7 +394,7 @@ export async function announceHandler(request: FastifyRequest, reply: FastifyRep
   const { complete, incomplete } = await getSeederLeecherCounts(torrent.id);
   const downloadCount = await getCompletedCount(torrent.id);
   // Minimal tracker response with peer list and counts
-  const response = {
+  const response: any = {
     'interval': config.defaultAnnounceInterval,
     'complete': complete,
     'incomplete': incomplete,
