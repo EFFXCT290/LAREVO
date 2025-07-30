@@ -167,26 +167,50 @@ export async function isPeerBanned(config: any, params: any): Promise<string | n
 
 export async function checkClientWhitelistBlacklist(config: any, params: any): Promise<string | null> {
   const client = params.client || '';
-  if (config.whitelistedClients && config.whitelistedClients.length > 0) {
-    if (!config.whitelistedClients.includes(client)) {
-      return 'Your torrent client is not allowed on this tracker.';
-    }
-  }
+  
+  console.log('[checkClientWhitelistBlacklist] Client:', client);
+  console.log('[checkClientWhitelistBlacklist] Whitelisted clients:', config.whitelistedClients);
+  console.log('[checkClientWhitelistBlacklist] Blacklisted clients:', config.blacklistedClients);
+  
+  // Check blacklist first - if client is blacklisted, it's banned regardless of whitelist
   if (config.blacklistedClients && config.blacklistedClients.length > 0) {
-    if (config.blacklistedClients.includes(client)) {
+    const isBlacklisted = config.blacklistedClients.some((blacklistedClient: string) => client.startsWith(blacklistedClient));
+    console.log('[checkClientWhitelistBlacklist] Blacklist check - client in blacklist?', isBlacklisted);
+    if (isBlacklisted) {
+      console.log('[checkClientWhitelistBlacklist] Client in blacklist - returning blacklist message');
       return 'Your torrent client is banned from this tracker.';
     }
   }
+  
+  // Then check whitelist - if whitelist is configured, client must be in it
+  if (config.whitelistedClients && config.whitelistedClients.length > 0) {
+    const isWhitelisted = config.whitelistedClients.some((whitelistedClient: string) => client.startsWith(whitelistedClient));
+    console.log('[checkClientWhitelistBlacklist] Whitelist check - client in whitelist?', isWhitelisted);
+    if (!isWhitelisted) {
+      console.log('[checkClientWhitelistBlacklist] Client not in whitelist - returning whitelist message');
+      return 'Your torrent client is not allowed on this tracker.';
+    }
+  }
+  
+  console.log('[checkClientWhitelistBlacklist] All checks passed - returning null');
   return null;
 }
 
 export async function checkClientFingerprint(config: any, params: any): Promise<string | null> {
   const fingerprint = params.fingerprint || '';
+  
+  console.log('[checkClientFingerprint] Fingerprint:', fingerprint);
+  console.log('[checkClientFingerprint] Allowed fingerprints:', config.allowedFingerprints);
+  
   if (config.allowedFingerprints && config.allowedFingerprints.length > 0) {
+    console.log('[checkClientFingerprint] Fingerprint check - fingerprint allowed?', config.allowedFingerprints.includes(fingerprint));
     if (!config.allowedFingerprints.includes(fingerprint)) {
+      console.log('[checkClientFingerprint] Fingerprint not allowed - returning fingerprint message');
       return 'Your torrent client version is not allowed (fingerprint check).';
     }
   }
+  
+  console.log('[checkClientFingerprint] All checks passed - returning null');
   return null;
 }
 
